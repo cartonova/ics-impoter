@@ -34,12 +34,12 @@ Class IcsAio extends Ai1ec_Base{
 }
 
 function icsaio_init( Ai1ec_Registry_Object $registry ) {
-	$registry->extension_acknowledge( AI1ECIF_PLUGIN_NAME, AI1ECIF_PATH );
+	$registry->extension_acknowledge( ICSAIO_PLUGIN_NAME, ICSAIO_PATH );
 	load_plugin_textdomain(
-		AI1ECIF_PLUGIN_NAME,
+		ICSAIO_PLUGIN_NAME,
 		false,
-		basename( AI1ECIF_PATH )
+		basename( ICSAIO_PATH )
 	);
 	$IcsAio = new IcsAio($registry);
 }
-add_action( 'ai1ec_loaded', 'icsaio_init', 9 );
+add_action( 'ai1ec_loaded', 'icsaio_init' );
