@@ -51,4 +51,5 @@ if(class_exists('Ai1ec_Base')){
     			wp_die( "<strong>".$plugin_data['Name']."</strong> requires <strong>All-in-One Event Calendar 2.0 </strong> or higher, and has been deactivated! Please install and try again.<br /><br />Back to the WordPress <a href='".get_admin_url(null, 'plugins.php')."'>Plugins page</a>." );
     		}
     }
+    add_action( 'admin_init', 'icsaio_requires_AIO' );
 }
