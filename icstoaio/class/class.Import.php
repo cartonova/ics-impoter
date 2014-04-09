@@ -5,6 +5,8 @@
  * @package WordPress
  * @subpackage Importer
  */
+ //ini_set('display_errors',1);
+ //error_reporting(E_ALL);
 if ( class_exists( 'WP_Importer' ) ) {
 class ICS_AIO_Importer extends WP_Importer {
 	protected $_registry;
@@ -47,9 +49,21 @@ class ICS_AIO_Importer extends WP_Importer {
 		
 		$this->id = (int) $file['id'];
 		$this->file = get_attached_file($this->id);
-        $cnt= $this->_add_vcalendar_events_to_db();
-		if ($cnt)
-            printf( __( 'You have imported %d Events', 'aio-ics-importer' ), $cnt );
+        $new_events= $this->_add_vcalendar_events_to_db();
+		if (!empty($new_events)){
+		  printf( __( '<b>You have imported %d Events</b>', 'aio-ics-importer' ), count($new_events) );
+		  foreach($new_events as $evnts){
+
+                echo '<table><tr>';
+                echo '<td>'.$evnts['title'].'</td>';
+                echo '<td><a target="_blank" href="'.get_edit_post_link($evnts['eid']).'"> / Edit</a></td>';
+                echo '</tr></table>';
+		  }
+		}else{
+		  printf( __( '<b>No new Event have imported </b>', 'aio-ics-importer' ));
+		}
+            
+            
 	}
 	/**
 	 * add_vcalendar_events_to_db method
@@ -85,6 +99,7 @@ class ICS_AIO_Importer extends WP_Importer {
 		// Fetch default timezone in case individual properties don't define it
 		$timezone = $v->getProperty( 'X-WR-TIMEZONE' );
 		$timezone = (string)$timezone[1];
+        $new_events=array();
 		// go over each event
 		while ( $e = $v->getComponent( 'vevent' ) ) {
 			// Event data array.
@@ -286,6 +301,10 @@ class ICS_AIO_Importer extends WP_Importer {
 			$address = $venue = '';
 			$location = $e->getProperty( 'location' );
             $extra_address=array();
+            
+            if($location)
+                $extra_address= explode(',',stripslashes($location));
+                            
             //city
             $values=$e->getProperty('X-PROP',4, false);
             if($values[0]=='X-DOTCAL-EVENT-CITY' && trim($values[1])){
@@ -311,13 +330,14 @@ class ICS_AIO_Importer extends WP_Importer {
                 else
                     $extra_address[]=$values[1];
             }     
-            $address='';
+               
+             
+            $location='';
             if(count($extra_address)){
-               $address=implode(', ',$extra_address);
+               $extra_address = array_map('trim', $extra_address);
+               $extra_address=array_unique($extra_address);
+               $location=implode(', ',$extra_address);
             }          
-            if(trim($address)){
-                $location=(trim($location)?$location.', ':'').$address;
-            }
 			$matches = array();
 			// This regexp matches a venue / address in the format
 			// "venue @ address" or "venue - address".
@@ -334,7 +354,6 @@ class ICS_AIO_Importer extends WP_Importer {
 				$venue = isset( $matches[1] ) ? $matches[1] : '';
 				$address = isset( $matches[2] ) ? $matches[2] : '';
 			}
-
 			// =====================================================
 			// = Set show map status based on presence of location =
 			// =====================================================
@@ -443,12 +462,15 @@ class ICS_AIO_Importer extends WP_Importer {
 					$event->get( 'start' ),
 					! empty( $recurrence )
 				);
-
+            //$new_events=array();
 			if ( null === $matching_event_id ) {
 				// =================================================
 				// = Event was not found, so store it and the post =
 				// =================================================
-				$event->save();
+				
+                $post_id=$event->save();
+                $new_events[]=array('eid'=>$post_id,'title'=>$e->getProperty('summary'));
+                
    	            $count++;
 			} else {
 				// ======================================================
@@ -472,7 +494,7 @@ class ICS_AIO_Importer extends WP_Importer {
 			}
 		
 		}
-		return $count;
+		return $new_events;
 	}
     
     /**
@@ -549,7 +571,14 @@ class ICS_AIO_Importer extends WP_Importer {
 
 		return $date_time;
 	}       
-  
+    /**
+	 * exception_dates_to function
+	 *
+	 * @return string
+	 **/
+	protected function _exception_dates_to( $exception_dates, $to_gmt = false ) {
+		// trigger_error( "need to implement this", E_USER_ERROR );
+	}  
 	// dispatcher
 	function icsaio_dispatch() {
 		
