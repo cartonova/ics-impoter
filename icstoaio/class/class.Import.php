@@ -10,7 +10,9 @@
 if ( class_exists( 'WP_Importer' ) ) {
 class ICS_AIO_Importer extends WP_Importer {
 	protected $_registry;
-    
+    protected $file;
+    protected $cat;
+    protected $id;
  	function set_registry(Ai1ec_Registry_Object $registry){
  	  $this->_registry = $registry;
  	}
@@ -29,7 +31,28 @@ class ICS_AIO_Importer extends WP_Importer {
 	// Step 1
 	function icsaio_message() {
 		echo '<p>'.__( 'Choose a ICS (.ICS) file to upload, then click Upload file and import.', 'aio-ics-importer' ).'</p>';
-		wp_import_upload_form( add_query_arg('step', 1) );
+		//wp_import_upload_form( add_query_arg('step', 1) );
+        $action=add_query_arg('step', 1);
+    	$bytes = apply_filters( 'import_upload_size_limit', wp_max_upload_size() );
+    	$size = size_format( $bytes );
+    	$upload_dir = wp_upload_dir();
+    	if ( ! empty( $upload_dir['error'] ) ) :
+    		?><div class="error"><p><?php _e('Before you can upload your import file, you will need to fix the following error:'); ?></p>
+    		<p><strong><?php echo $upload_dir['error']; ?></strong></p></div><?php
+    	else :
+    ?>
+    <form enctype="multipart/form-data" id="import-upload-form" method="post" class="wp-upload-form" action="<?php echo esc_url( wp_nonce_url( $action, 'import-upload' ) ); ?>">
+    <p>
+    <label for="upload"><?php _e( 'Choose a file from your computer:' ); ?></label> (<?php printf( __('Maximum size: %s' ), $size ); ?>)
+    <input type="file" id="upload" name="import" size="25" />
+    <?wp_dropdown_categories(array('taxonomy'=>'events_categories','hide_empty'=>0));?>
+    <input type="hidden" name="action" value="save" />
+    <input type="hidden" name="max_file_size" value="<?php echo $bytes; ?>" />
+    </p>
+    <?php submit_button( __('Upload file and import'), 'button' ); ?>
+    </form>
+<?        
+    endif;
 	}
 
 	// Step 2
@@ -46,9 +69,12 @@ class ICS_AIO_Importer extends WP_Importer {
 			echo '</p>';
 			return false;
 		}
-		
 		$this->id = (int) $file['id'];
 		$this->file = get_attached_file($this->id);
+        if($_POST['cat']){
+            $this->cat =$_POST['cat'];
+        } 
+       
         $new_events= $this->_add_vcalendar_events_to_db();
 		if (!empty($new_events)){
 		  printf( __( '<b>You have imported %d Events</b>', 'aio-ics-importer' ), count($new_events) );
@@ -141,18 +167,21 @@ class ICS_AIO_Importer extends WP_Importer {
 					}
 				}
 			}
-
-			$categories = $e->getProperty( "CATEGORIES", false, true );
-			$imported_cat = array();
-			// If the user chose to preserve taxonomies during import, add categories.
-			if( $categories && $feed->keep_tags_categories ) {
-				$imported_cat = $this->_add_categories_and_tags(
-						$categories['value'],
-						$imported_cat,
-						false,
-						true
-				);
-			}
+            if($this->cat){
+                $imported_cat[$this->cat]=true;
+            }else{
+    			$categories = $e->getProperty( "CATEGORIES", false, true );
+    			$imported_cat = array();
+    			// If the user chose to preserve taxonomies during import, add categories.
+    			if( $categories && $feed->keep_tags_categories ) {
+    				$imported_cat = $this->_add_categories_and_tags(
+    						$categories['value'],
+    						$imported_cat,
+    						false,
+    						true
+    				);
+    			}                
+            }
             $imported_tags = array();
             /*
 			$feed_categories = $feed->feed_category;
@@ -579,6 +608,44 @@ class ICS_AIO_Importer extends WP_Importer {
 	protected function _exception_dates_to( $exception_dates, $to_gmt = false ) {
 		// trigger_error( "need to implement this", E_USER_ERROR );
 	}  
+
+	/**
+	 * Takes a comma-separated list of tags or categories.
+	 * If they exist, reuses
+	 * the existing ones. If not, creates them.
+	 *
+	 * The $imported_terms array uses keys to store values rather than values to
+	 * speed up lookups (using isset() insted of in_array()).
+	 *
+	 * @param string  $terms
+	 * @param array   $imported_terms
+	 * @param boolean $is_tag
+	 * @param boolean $use_name
+	 *
+	 * @return array
+	 */
+	protected function _add_categories_and_tags(
+		$terms,
+		array $imported_terms,
+		$is_tag,
+		$use_name
+	) {
+		$taxonomy       = $is_tag ? 'events_tags' : 'events_categories';
+		$categories     = explode( ',', $terms );
+		$get_term_by    = $use_name ? 'name' : 'id';
+		$event_taxonomy = $this->_registry->get( 'model.event.taxonomy' );
+		foreach ( $categories as $cat_name ) {
+			$cat_name = trim( $cat_name );
+			if ( empty( $cat_name ) ) {
+				continue;
+			}
+			$term_id = $event_taxonomy->initiate_term( $cat_name, $taxonomy, ! $use_name );
+			if ( false !== $term_id ) {
+				$imported_terms[$term_id] = true;
+			}
+		}
+		return $imported_terms;
+	}    
 	// dispatcher
 	function icsaio_dispatch() {
 		
