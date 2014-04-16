@@ -1,58 +1,85 @@
 <?php
+
+// Load Importer API
+require_once ABSPATH . 'wp-admin/includes/import.php';
+if ( ! class_exists( 'WP_Importer' ) ) {
+	$class_wp_importer = ABSPATH . 'wp-admin/includes/class-wp-importer.php';
+	if ( file_exists( $class_wp_importer ) ) {
+		require_once $class_wp_importer;
+	} else {
+		return; // save from further processing
+	}
+}
+
 /**
  * ICS Import
  *
- * @package WordPress
+ * @package    WordPress
  * @subpackage Importer
  */
- //ini_set('display_errors',1);
- //error_reporting(E_ALL);
-if ( class_exists( 'WP_Importer' ) ) {
 class ICS_AIO_Importer extends WP_Importer {
+
+	/**
+	 * @var Ai1ec_Registry_Object Instance of application registry.
+	 */
 	protected $_registry;
-    protected $file;
-    protected $cat;
-    protected $id;
- 	function set_registry(Ai1ec_Registry_Object $registry){
- 	  $this->_registry = $registry;
- 	}
-    // User interface wrapper start
-	function icsaio_header() {
+
+	/**
+	 * @var string Path to file uploaded.
+	 */
+	protected $file;
+
+	/**
+	 * @var string Name|ID of category for ICS.
+	 */
+	protected $cat;
+
+	/**
+	 * @var string WordPress internal uploaded file identifier.
+	 */
+	protected $id;
+
+	public function set_registry( Ai1ec_Registry_Object $registry ) {
+		$this->_registry = $registry;
+	}
+
+	// User interface wrapper start
+	public function icsaio_header() {
 		echo '<div class="wrap">';
 		screen_icon();
-		echo '<h2>'.__('Import ICS', 'aio-ics-importer').'</h2>';
+		echo '<h2>' . __( 'Import ICS', 'aio-ics-importer' ) . '</h2>';
 	}
 
 	// User interface wrapper end
-	function icsaio_footer() {
+	public function icsaio_footer() {
 		echo '</div>';
 	}
-	
+
 	// Step 1
 	function icsaio_message() {
 		echo '<p>'.__( 'Choose a ICS (.ICS) file to upload, then click Upload file and import.', 'aio-ics-importer' ).'</p>';
 		//wp_import_upload_form( add_query_arg('step', 1) );
-        $action=add_query_arg('step', 1);
-    	$bytes = apply_filters( 'import_upload_size_limit', wp_max_upload_size() );
-    	$size = size_format( $bytes );
-    	$upload_dir = wp_upload_dir();
-    	if ( ! empty( $upload_dir['error'] ) ) :
-    		?><div class="error"><p><?php _e('Before you can upload your import file, you will need to fix the following error:'); ?></p>
-    		<p><strong><?php echo $upload_dir['error']; ?></strong></p></div><?php
-    	else :
-    ?>
-    <form enctype="multipart/form-data" id="import-upload-form" method="post" class="wp-upload-form" action="<?php echo esc_url( wp_nonce_url( $action, 'import-upload' ) ); ?>">
-    <p>
-    <label for="upload"><?php _e( 'Choose a file from your computer:' ); ?></label> (<?php printf( __('Maximum size: %s' ), $size ); ?>)
-    <input type="file" id="upload" name="import" size="25" />
-    <?wp_dropdown_categories(array('taxonomy'=>'events_categories','hide_empty'=>0));?>
-    <input type="hidden" name="action" value="save" />
-    <input type="hidden" name="max_file_size" value="<?php echo $bytes; ?>" />
-    </p>
-    <?php submit_button( __('Upload file and import'), 'button' ); ?>
-    </form>
-<?        
-    endif;
+		$action=add_query_arg('step', 1);
+		$bytes = apply_filters( 'import_upload_size_limit', wp_max_upload_size() );
+		$size = size_format( $bytes );
+		$upload_dir = wp_upload_dir();
+		if ( ! empty( $upload_dir['error'] ) ) :
+			?><div class="error"><p><?php _e('Before you can upload your import file, you will need to fix the following error:'); ?></p>
+		<p><strong><?php echo $upload_dir['error']; ?></strong></p></div><?php
+		else :
+			?>
+			<form enctype="multipart/form-data" id="import-upload-form" method="post" class="wp-upload-form" action="<?php echo esc_url( wp_nonce_url( $action, 'import-upload' ) ); ?>">
+				 <p>
+				 <label for="upload"><?php _e( 'Choose a file from your computer:' ); ?></label> (<?php printf( __('Maximum size: %s' ), $size ); ?>)
+																							  <input type="file" id="upload" name="import" size="25" />
+																							  <?wp_dropdown_categories(array('taxonomy'=>'events_categories','hide_empty'=>0));?>
+																							  <input type="hidden" name="action" value="save" />
+																							  <input type="hidden" name="max_file_size" value="<?php echo $bytes; ?>" />
+																							  </p>
+																							  <?php submit_button( __('Upload file and import'), 'button' ); ?>
+																							  </form>
+																							  <?		
+																							  endif;
 	}
 
 	// Step 2
@@ -71,48 +98,48 @@ class ICS_AIO_Importer extends WP_Importer {
 		}
 		$this->id = (int) $file['id'];
 		$this->file = get_attached_file($this->id);
-        if($_POST['cat']){
-            $this->cat =$_POST['cat'];
-        } 
-       
-        $new_events= $this->_add_vcalendar_events_to_db();
+		if($_POST['cat']){
+			$this->cat =$_POST['cat'];
+		} 
+	   
+		$new_events= $this->_add_vcalendar_events_to_db();
 		if (!empty($new_events)){
-		  printf( __( '<b>You have imported %d Events</b>', 'aio-ics-importer' ), count($new_events) );
-		  foreach($new_events as $evnts){
+			printf( __( '<b>You have imported %d Events</b>', 'aio-ics-importer' ), count($new_events) );
+			foreach($new_events as $evnts){
 
-                echo '<table><tr>';
-                echo '<td>'.$evnts['title'].'</td>';
-                echo '<td><a target="_blank" href="'.get_edit_post_link($evnts['eid']).'"> / Edit</a></td>';
-                echo '</tr></table>';
-		  }
+				echo '<table><tr>';
+				echo '<td>'.$evnts['title'].'</td>';
+				echo '<td><a target="_blank" href="'.get_edit_post_link($evnts['eid']).'"> / Edit</a></td>';
+				echo '</tr></table>';
+			}
 		}else{
-		  printf( __( '<b>No new Event have imported </b>', 'aio-ics-importer' ));
+			printf( __( '<b>No new Event have imported </b>', 'aio-ics-importer' ));
 		}
-            
-            
+			
+			
 	}
 	/**
 	 * add_vcalendar_events_to_db method
 	 *
 	 * Process vcalendar instance - add events to database
 	 *
-	 * @param vcalendar $v              Calendar to retrieve data from
-	 * @param stdClass  $feed           Instance of feed (see Ai1ecIcs plugin)
-	 * @param string    $comment_status WP comment status: 'open' or 'closed'
-	 * @param int       $do_show_map    Map display status (DB boolean: 0 or 1)
+	 * @param vcalendar $v				Calendar to retrieve data from
+	 * @param stdClass	$feed			Instance of feed (see Ai1ecIcs plugin)
+	 * @param string	$comment_status WP comment status: 'open' or 'closed'
+	 * @param int		$do_show_map	Map display status (DB boolean: 0 or 1)
 	 *
 	 * @return int Count of events added to database
 	 */
 	protected function _add_vcalendar_events_to_db() {
-	   $source=file_get_contents($this->file);
-       $v = $this->_registry->get('vcalendar');
-       $v->parse( $source);
+		$source = file_get_contents( $this->file );
+		$v      = $this->_registry->get( 'vcalendar' );
+		$v->parse( $source );
 
-		$feed           = 'null';
+		$feed			= 'null';
 		$comment_status = 'open';
-		$do_show_map    = 1;
+		$do_show_map	= 1;
 		$count = 0;
-        
+		
 		$v->sort();
 		// Reverse the sort order, so that RECURRENCE-IDs are listed before the
 		// defining recurrence events, and therefore take precedence during
@@ -125,7 +152,7 @@ class ICS_AIO_Importer extends WP_Importer {
 		// Fetch default timezone in case individual properties don't define it
 		$timezone = $v->getProperty( 'X-WR-TIMEZONE' );
 		$timezone = (string)$timezone[1];
-        $new_events=array();
+		$new_events=array();
 		// go over each event
 		while ( $e = $v->getComponent( 'vevent' ) ) {
 			// Event data array.
@@ -134,11 +161,11 @@ class ICS_AIO_Importer extends WP_Importer {
 			// = Start & end times =
 			// =====================
 			$start = $e->getProperty( 'dtstart', 1, true );
-			$end   = $e->getProperty( 'dtend',   1, true );
+			$end   = $e->getProperty( 'dtend',	 1, true );
 			// For cases where a "VEVENT" calendar component
 			// specifies a "DTSTART" property with a DATE value type but none
 			// of "DTEND" nor "DURATION" property, the event duration is taken to
-			// be one day.  For cases where a "VEVENT" calendar component
+			// be one day.	For cases where a "VEVENT" calendar component
 			// specifies a "DTSTART" property with a DATE-TIME value type but no
 			// "DTEND" property, the event ends on the same calendar date and
 			// time of day specified by the "DTSTART" property.
@@ -150,14 +177,14 @@ class ICS_AIO_Importer extends WP_Importer {
 					if ( ! isset( $start['value']['hour'] ) ) {
 						$end = array(
 							'value' => array(
-								'year'  => $start['value']['year'],
+								'year'	=> $start['value']['year'],
 								'month' => $start['value']['month'],
-								'day'   => $start['value']['day'] + 1,
-								'hour'  => 0,
-								'min'   => 0,
-								'sec'   => 0,
-							),
-						);
+								'day'	=> $start['value']['day'] + 1,
+								'hour'	=> 0,
+								'min'	=> 0,
+								'sec'	=> 0,
+								),
+							);
 						if ( isset( $start['value']['tz'] ) ) {
 							$end['value']['tz'] = $start['value']['tz'];
 						}
@@ -167,56 +194,56 @@ class ICS_AIO_Importer extends WP_Importer {
 					}
 				}
 			}
-            if($this->cat){
-                $imported_cat[$this->cat]=true;
-            }else{
-    			$categories = $e->getProperty( "CATEGORIES", false, true );
-    			$imported_cat = array();
-    			// If the user chose to preserve taxonomies during import, add categories.
-    			if( $categories && $feed->keep_tags_categories ) {
-    				$imported_cat = $this->_add_categories_and_tags(
-    						$categories['value'],
-    						$imported_cat,
-    						false,
-    						true
-    				);
-    			}                
-            }
-            $imported_tags = array();
-            /*
-			$feed_categories = $feed->feed_category;
-			if( ! empty( $feed_categories ) ) {
-				$imported_cat = $this->_add_categories_and_tags(
-						$feed_categories,
+			if ( $this->cat ) {
+				$imported_cat[$this->cat] = true;
+			} else {
+				$categories   = $e->getProperty( 'CATEGORIES', false, true );
+				$imported_cat = array();
+				// If the user chose to preserve taxonomies during import, add categories.
+				if ( $categories && $feed->keep_tags_categories ) {
+					$imported_cat = $this->_add_categories_and_tags(
+						$categories['value'],
 						$imported_cat,
 						false,
-						false
-				);
+						true
+					);
+				}				 
 			}
-            
-			$tags = $e->getProperty( "X-TAGS", false, true );
+			$imported_tags = array();
+			/*
+			  $feed_categories = $feed->feed_category;
+			  if( ! empty( $feed_categories ) ) {
+			  $imported_cat = $this->_add_categories_and_tags(
+			  $feed_categories,
+			  $imported_cat,
+			  false,
+			  false
+			  );
+			  }
+			
+			  $tags = $e->getProperty( "X-TAGS", false, true );
 
 
 			
-			// If the user chose to preserve taxonomies during import, add tags.
-			if( $tags && $feed->keep_tags_categories ) {
-				$imported_tags = $this->_add_categories_and_tags(
-						$tags[1]['value'],
-						$imported_tags,
-						true,
-						true
-				);
-			}
-			$feed_tags = $feed->feed_tags;
-			if( ! empty( $feed_tags ) ) {
-				$imported_tags = $this->_add_categories_and_tags(
-						$feed_tags,
-						$imported_tags,
-						true,
-						true
-				);
-			}
-            */
+			  // If the user chose to preserve taxonomies during import, add tags.
+			  if( $tags && $feed->keep_tags_categories ) {
+			  $imported_tags = $this->_add_categories_and_tags(
+			  $tags[1]['value'],
+			  $imported_tags,
+			  true,
+			  true
+			  );
+			  }
+			  $feed_tags = $feed->feed_tags;
+			  if( ! empty( $feed_tags ) ) {
+			  $imported_tags = $this->_add_categories_and_tags(
+			  $feed_tags,
+			  $imported_tags,
+			  true,
+			  true
+			  );
+			  }
+			*/
 			// Event is all-day if no time components are defined
 			$allday = $this->_is_timeless( $start['value'] ) &&
 				$this->_is_timeless( $end['value'] );
@@ -227,7 +254,7 @@ class ICS_AIO_Importer extends WP_Importer {
 			}
 
 			$start = $this->_time_array_to_datetime( $start, $timezone );
-			$end   = $this->_time_array_to_datetime( $end,   $timezone );
+			$end   = $this->_time_array_to_datetime( $end,	 $timezone );
 
 			if ( false === $start || false === $end ) {
 				throw new Ai1ec_Parse_Exception(
@@ -273,7 +300,7 @@ class ICS_AIO_Importer extends WP_Importer {
 			if ( $exdates = $e->createExdate() ){
 				// We may have two formats:
 				// one exdate with many dates ot more EXDATE rules
-				$exdates = explode( "EXDATE", $exdates );
+				$exdates = explode( 'EXDATE', $exdates );
 				foreach ( $exdates as $exd ) {
 					if ( empty( $exd ) ) {
 						continue;
@@ -288,12 +315,7 @@ class ICS_AIO_Importer extends WP_Importer {
 			// because EXDATE:date1,date2,date3 must be parsed
 			if( ! empty( $exdate_loc ) ) {
 				foreach ( explode( ',', $exdate_loc ) as $date ) {
-					// If the date is > 8 char that's a datetime, we just want the
-					// date part for the exclusion rules
-					if ( strlen( $date ) > 8 ) {
-						$date = substr( $date, 0, 8 );
-					}
-					$gmt_exdates[] = $this->_exception_dates_to( $date, true );
+					$gmt_exdates[] = substr( (string)$date, 0, 8 );
 				}
 			}
 			$exdate = implode( ',', $gmt_exdates );
@@ -305,9 +327,9 @@ class ICS_AIO_Importer extends WP_Importer {
 			$geo_tag  = $e->getProperty( 'geo' );
 			if ( is_array( $geo_tag ) ) {
 				if (
-				isset( $geo_tag['latitude'] ) &&
-				isset( $geo_tag['longitude'] )
-				) {
+					isset( $geo_tag['latitude'] ) &&
+					isset( $geo_tag['longitude'] )
+					) {
 					$latitude  = (float)$geo_tag['latitude'];
 					$longitude = (float)$geo_tag['longitude'];
 				}
@@ -317,7 +339,7 @@ class ICS_AIO_Importer extends WP_Importer {
 				$longitude = (float)$longitude;
 			}
 			unset( $geo_tag );
-			if ( NULL !== $latitude ) {
+			if ( null !== $latitude ) {
 				$data += compact( 'latitude', 'longitude' );
 				// Check the input coordinates checkbox, otherwise lat/long data
 				// is not present on the edit event page
@@ -327,46 +349,48 @@ class ICS_AIO_Importer extends WP_Importer {
 			// ===================
 			// = Venue & address =
 			// ===================
-			$address = $venue = '';
-			$location = $e->getProperty( 'location' );
-            $extra_address=array();
-            
-            if($location)
-                $extra_address= explode(',',stripslashes($location));
-                            
-            //city
-            $values=$e->getProperty('X-PROP',4, false);
-            if($values[0]=='X-DOTCAL-EVENT-CITY' && trim($values[1])){
-                $extra_address[]=$values[1];
-            }
-            //state
-            $values=$e->getProperty('X-PROP',5, false);
-            if($values[0]=='X-DOTCAL-EVENT-STATE' && $values[1]){
-                $extra_address[]=$values[1];
-            }      
-            //zipcode      
-            $values=$e->getProperty('X-PROP',7, false);
-            $is_zip=false;
-            if($values[0]=='X-DOTCAL-EVENT-POSTAL-CODE' && $values[1]){
-                $is_zip=true;
-                $extra_address[]=$values[1];
-            }          
-            //country      
-            $values=$e->getProperty('X-PROP',6, false);
-            if($values[0]=='X-DOTCAL-EVENT-COUNTRY' && $values[1]){
-                if($is_zip)
-                    $extra_address[]=array_pop($extra_address).' '.$values[1];
-                else
-                    $extra_address[]=$values[1];
-            }     
-               
-             
-            $location='';
-            if(count($extra_address)){
-               $extra_address = array_map('trim', $extra_address);
-               $extra_address=array_unique($extra_address);
-               $location=implode(', ',$extra_address);
-            }          
+			$address       = $venue = '';
+			$location      = $e->getProperty( 'location' );
+			$extra_address = array();
+
+			if ($location) {
+				$extra_address = explode( ',', stripslashes( $location ) );
+			}
+
+			//city
+			$values=$e->getProperty('X-PROP',4, false);
+			if ($values[0] === 'X-DOTCAL-EVENT-CITY' && trim( $values[1] ) ) {
+				$extra_address[] = $values[1];
+			}
+			//state
+			$values=$e->getProperty('X-PROP',5, false);
+			if ($values[0] === 'X-DOTCAL-EVENT-STATE' && $values[1] ) {
+				$extra_address[] = $values[1];
+			}
+			//zipcode	   
+			$values = $e->getProperty( 'X-PROP', 7, false );
+			$is_zip = false;
+			if ( $values[0] === 'X-DOTCAL-EVENT-POSTAL-CODE' && $values[1] ) {
+				$is_zip          = true;
+				$extra_address[] = $values[1];
+			}
+			//country
+			$values = $e->getProperty( 'X-PROP', 6, false );
+			if ( $values[0] === 'X-DOTCAL-EVENT-COUNTRY' && $values[1] ) {
+				if ( $is_zip ) {
+					$extra_address[] = array_pop( $extra_address ) .
+						' ' . $values[1];
+				} else {
+					$extra_address[] = $values[1];
+				}
+			}	  
+
+			$location = '';
+			if ( count( $extra_address ) ) {
+				$extra_address = array_map( 'trim', $extra_address );
+				$extra_address = array_unique( $extra_address );
+				$location      = implode( ', ', $extra_address );
+			}
 			$matches = array();
 			// This regexp matches a venue / address in the format
 			// "venue @ address" or "venue - address".
@@ -388,7 +412,7 @@ class ICS_AIO_Importer extends WP_Importer {
 			// =====================================================
 			if (
 				1 === $do_show_map &&
-				NULL === $latitude &&
+				null === $latitude &&
 				empty( $address )
 			) {
 				$do_show_map = 0;
@@ -397,8 +421,8 @@ class ICS_AIO_Importer extends WP_Importer {
 			// ==================
 			// = Cost & tickets =
 			// ==================
-			$cost       = $e->getProperty( 'X-COST' );
-			$cost       = $cost ? $cost[1] : '';
+			$cost		= $e->getProperty( 'X-COST' );
+			$cost		= $cost ? $cost[1] : '';
 			$ticket_url = $e->getProperty( 'X-TICKETS-URL' );
 			$ticket_url = $ticket_url ? $ticket_url[1] : '';
 
@@ -409,7 +433,7 @@ class ICS_AIO_Importer extends WP_Importer {
 			if (
 				'MAILTO:' === substr( $organizer, 0, 7 ) &&
 				false === strpos( $organizer, '@' )
-			) {
+				) {
 				$organizer = substr( $organizer, 7 );
 			}
 			$contact = $e->getProperty( 'contact' );
@@ -422,7 +446,7 @@ class ICS_AIO_Importer extends WP_Importer {
 				}
 				// Detect URL.
 				elseif ( false !== strpos( $el, '://' ) ) {
-					$data['contact_url']   = $el;
+					$data['contact_url']   = $this->_parse_legacy_loggable_url( $el );
 				}
 				// Detect phone number.
 				elseif ( preg_match( '/\d/', $el ) ) {
@@ -435,43 +459,45 @@ class ICS_AIO_Importer extends WP_Importer {
 			}
 			if ( ! isset( $data['contact_name'] ) || ! $data['contact_name'] ) {
 				// If no contact name, default to organizer property.
-				$data['contact_name']    = $organizer;
+				$data['contact_name']	 = $organizer;
 			}
 
 			// Store yet-unsaved values to the $data array.
 			$data += array(
-				'recurrence_rules'  => $rrule,
-				'exception_rules'   => $exrule,
-				'recurrence_dates'  => $rdate,
-				'exception_dates'   => $exdate,
-				'venue'             => $venue,
-				'address'           => $address,
-				'cost'              => $cost,
-				'ticket_url'        => $ticket_url,
-				'show_map'          => $do_show_map,
-				'ical_feed_url'     => (is_object($feed)?$feed->feed_url:get_bloginfo('url')),
-				'ical_source_url'   => $e->getProperty( 'url' ),
-				'ical_organizer'    => $organizer,
-				'ical_contact'      => $contact,
-				'ical_uid'          => $e->getProperty( 'uid' ),
-				'categories'        => array_keys( $imported_cat ),
-				'tags'              => array_keys( $imported_tags ),
-				'feed'              => $feed,
-				'post'              => array(
-					'post_status'       => 'publish',
-						'comment_status'    => $comment_status,
-						'post_type'         => AI1EC_POST_TYPE,
-						'post_author'       => 1,
-						'post_title'        => $e->getProperty( 'summary' ),
-						'post_content'      => stripslashes(
-							str_replace(
-								'\n',
-								"\n",
-								$e->getProperty( 'description' )
+				'recurrence_rules'	=> $rrule,
+				'exception_rules'	=> $exrule,
+				'recurrence_dates'	=> $rdate,
+				'exception_dates'	=> $exdate,
+				'venue'				=> $venue,
+				'address'			=> $address,
+				'cost'				=> $cost,
+				'ticket_url'		=> $this->_parse_legacy_loggable_url( $ticket_url ),
+				'show_map'			=> $do_show_map,
+				'ical_feed_url'		=> is_object( $feed )
+					? $feed->feed_url
+					: get_bloginfo('url'),
+				'ical_source_url'	=> $e->getProperty( 'url' ),
+				'ical_organizer'	=> $organizer,
+				'ical_contact'		=> $contact,
+				'ical_uid'			=> $e->getProperty( 'uid' ),
+				'categories'		=> array_keys( $imported_cat ),
+				'tags'				=> array_keys( $imported_tags ),
+				'feed'				=> $feed,
+				'post'				=> array(
+					'post_status'		=> 'publish',
+					'comment_status'	=> $comment_status,
+					'post_type'			=> AI1EC_POST_TYPE,
+					'post_author'		=> 1,
+					'post_title'		=> $e->getProperty( 'summary' ),
+					'post_content'		=> stripslashes(
+						str_replace(
+							'\n',
+							"\n",
+							$e->getProperty( 'description' )
 							)
 						),
-				),
-			);
+					),
+				);
 
 			// Create event object.
 			$event = $this->_registry->get( 'model.event', $data );
@@ -490,33 +516,33 @@ class ICS_AIO_Importer extends WP_Importer {
 					$event->get( 'ical_feed_url' ),
 					$event->get( 'start' ),
 					! empty( $recurrence )
-				);
-            //$new_events=array();
+					);
+			//$new_events=array();
 			if ( null === $matching_event_id ) {
 				// =================================================
 				// = Event was not found, so store it and the post =
 				// =================================================
 				
-                $post_id=$event->save();
-                $new_events[]=array('eid'=>$post_id,'title'=>$e->getProperty('summary'));
-                
-   	            $count++;
+				$post_id=$event->save();
+				$new_events[]=array('eid'=>$post_id,'title'=>$e->getProperty('summary'));
+				
+				$count++;
 			} else {
 				// ======================================================
 				// = Event was found, let's store the new event details =
 				// ======================================================
 
 				// Update the post
-				$post               = get_post( $matching_event_id );
+				$post				= get_post( $matching_event_id );
 
 				if ( null !== $post ) {
-					$post->post_title   = $event->get( 'post' )->post_title;
+					$post->post_title	= $event->get( 'post' )->post_title;
 					$post->post_content = $event->get( 'post' )->post_content;
 					wp_update_post( $post );
 
 					// Update the event
 					$event->set( 'post_id', $matching_event_id );
-					$event->set( 'post',    $post );
+					$event->set( 'post',	$post );
 					$event->save( true );
 				}
 
@@ -525,10 +551,8 @@ class ICS_AIO_Importer extends WP_Importer {
 		}
 		return $new_events;
 	}
-    
-    /**
-	 * _is_timeless method
-	 *
+	
+	/**
 	 * Check if date-time specification has no (empty) time component.
 	 *
 	 * @param array $datetime Datetime array returned by iCalcreator
@@ -539,26 +563,25 @@ class ICS_AIO_Importer extends WP_Importer {
 		$timeless = true;
 		foreach ( array( 'hour', 'min', 'sec' ) as $field ) {
 			$timeless &= (
-					isset( $datetime[$field] ) &&
-					0 != $datetime[$field]
+				isset( $datetime[$field] ) &&
+				0 != $datetime[$field]
 			)
-			? false
-			: true;
+				? false
+				: true;
 		}
 		return $timeless;
 	}
-    /**
-	 * time_array_to_timestamp function
+
+	/**
+	 * Converts time array to DateTime instance.
 	 *
-	 * Converts time array to time string.
 	 * Passed array: Array( 'year', 'month', 'day', ['hour', 'min', 'sec', ['tz']] )
-	 * Return int: UNIX timestamp in GMT
 	 *
-	 * @param array  $time         iCalcreator time property array (*full* format expected)
+	 * @param array	 $time		   iCalcreator time property array (*full* format expected)
 	 * @param string $def_timezone Default time zone in case not defined in $time
 	 *
-	 * @return int UNIX timestamp
-	 **/
+	 * @return Ai1ec_Date_Time Object to use in date manipulations.
+	 */
 	protected function _time_array_to_datetime( array $time, $def_timezone ) {
 		$timezone = '';
 		if ( isset( $time['params']['TZID'] ) ) {
@@ -584,30 +607,23 @@ class ICS_AIO_Importer extends WP_Importer {
 			$date_time->set_timezone( $timezone );
 		}
 
+		if ( ! isset( $time['value']['hour'] ) ) {
+			$time['value']['hour'] = $time['value']['min'] =
+				$time['value']['sec'] = 0;
+		}
+
 		$date_time->set_date(
 			$time['value']['year'],
 			$time['value']['month'],
 			$time['value']['day']
+		)->set_time(
+			$time['value']['hour'],
+			$time['value']['min'],
+			$time['value']['sec']
 		);
 
-		if ( isset( $time['value']['hour'] ) ) {
-			$date_time->set_time(
-				$time['value']['hour'],
-				$time['value']['min'],
-				$time['value']['sec']
-			);
-		}
-
 		return $date_time;
-	}       
-    /**
-	 * exception_dates_to function
-	 *
-	 * @return string
-	 **/
-	protected function _exception_dates_to( $exception_dates, $to_gmt = false ) {
-		// trigger_error( "need to implement this", E_USER_ERROR );
-	}  
+	}		
 
 	/**
 	 * Takes a comma-separated list of tags or categories.
@@ -618,7 +634,7 @@ class ICS_AIO_Importer extends WP_Importer {
 	 * speed up lookups (using isset() insted of in_array()).
 	 *
 	 * @param string  $terms
-	 * @param array   $imported_terms
+	 * @param array	  $imported_terms
 	 * @param boolean $is_tag
 	 * @param boolean $use_name
 	 *
@@ -630,50 +646,79 @@ class ICS_AIO_Importer extends WP_Importer {
 		$is_tag,
 		$use_name
 	) {
-		$taxonomy       = $is_tag ? 'events_tags' : 'events_categories';
-		$categories     = explode( ',', $terms );
-		$get_term_by    = $use_name ? 'name' : 'id';
+		$taxonomy		= $is_tag ? 'events_tags' : 'events_categories';
+		$categories		= explode( ',', $terms );
+		$get_term_by	= $use_name ? 'name' : 'id';
 		$event_taxonomy = $this->_registry->get( 'model.event.taxonomy' );
 		foreach ( $categories as $cat_name ) {
 			$cat_name = trim( $cat_name );
 			if ( empty( $cat_name ) ) {
 				continue;
 			}
-			$term_id = $event_taxonomy->initiate_term( $cat_name, $taxonomy, ! $use_name );
+			$term_id = $event_taxonomy->initiate_term(
+				$cat_name,
+				$taxonomy,
+				! $use_name
+			);
 			if ( false !== $term_id ) {
 				$imported_terms[$term_id] = true;
 			}
 		}
 		return $imported_terms;
-	}    
-	// dispatcher
-	function icsaio_dispatch() {
-		
-        $this->icsaio_header();
-		
-		if (empty ($_GET['step']))
-			$step = 0;
-		else
-			$step = (int) $_GET['step'];
+	}
 
-		switch ($step) {
+	// dispatcher
+	public function icsaio_dispatch() {
+		$this->icsaio_header();
+
+		$step = 0;
+		if ( ! empty( $_GET['step'] ) ) {
+			$step = (int)$_GET['step'];
+		}
+
+		switch ( $step ) {
 			case 0 :
 				$this->icsaio_message();
 				break;
-			case 1 :
-				check_admin_referer('import-upload');
-				set_time_limit(0);
 
-                //$event->save();
-                   
+			case 1 :
+				check_admin_referer( 'import-upload' );
+				set_time_limit(0);
 				$result = $this->icsaio_import();
-				if ( is_wp_error( $result ) )
+				if ( is_wp_error( $result ) ) {
 					echo $result->get_error_message();
+				}
 				break;
 		}
-		
+
 		$this->icsaio_footer();
 	}
-	
+
+	/**
+	 * Convert loggable URL exported from legacy Ai1EC installation.
+	 *
+	 * @param string $loggable_url Likely loggable URL.
+	 *
+	 * @return string Non-loggable URL.
+	 */
+	protected function _parse_legacy_loggable_url( $loggable_url ) {
+		if ( 0 !== strpos( $loggable_url, AI1EC_REDIRECTION_SERVICE ) ) {
+			return $loggable_url; // it wasn't loggable URL
+		}
+		$value = base64_decode(
+			substr( $loggable_url, strlen( AI1EC_REDIRECTION_SERVICE ) )
+		);
+		$clear_url = null; // return empty if nothing is parseable
+		if ( // valid JSON structure remains
+			null !== ( $decoded = json_decode( $value, true ) ) &&
+			isset( $decoded['l'] )
+		) {
+			$clear_url = $decoded['l'];
+		} else if ( preg_match( '|"l"\s*:\s*"(.+?)","|', $value, $matches ) ) {
+			// reverting to dirty parsing as JSON is broken
+			$clear_url = stripslashes( $matches[1] );
+		} // no more else - impossible to parse anything
+		return $clear_url;
+	}
+
 }
-} // class_exists( 'WP_Importer' )
